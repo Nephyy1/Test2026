@@ -2,42 +2,58 @@
 
 body {
   margin: 0;
-  background-color: #000;
+  background-color: #050505; /* Latar belakang gelap */
   color: white;
   font-family: 'Rajdhani', sans-serif;
-  overflow: hidden;
+  overflow: hidden; /* Hilangkan scrollbar */
 }
 
-.holistic-container {
-  position: relative;
+.app-container {
   width: 100vw;
   height: 100vh;
+  position: relative;
+  display: flex;
+  justify-content: center; /* Tengah secara horizontal */
+  align-items: center;     /* Tengah secara vertikal */
+  background: radial-gradient(circle, #1a1a1a 0%, #000000 100%);
+}
+
+/* WRAPPER VIDEO: Menjaga rasio aspek */
+.video-wrapper {
+  position: relative;
+  width: 100%;
+  height: 100%;
   display: flex;
   justify-content: center;
   align-items: center;
-  background: #000;
 }
 
-.webcam-bg {
+/* VIDEO & CANVAS: Kunci Responsif */
+.responsive-video, 
+.responsive-canvas {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  opacity: 0.6; /* Gelapkan video agar grafik terlihat */
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  /* 'contain' memastikan video TIDAK TERPOTONG/CROP */
+  object-fit: contain; 
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%); /* Benar-benar di tengah */
 }
 
-.output-canvas {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+/* Pastikan video di-mirror secara visual tapi tidak merusak layout */
+.responsive-video {
+  transform: translate(-50%, -50%) scaleX(-1);
   z-index: 1;
 }
 
-/* Heads Up Display (HUD) */
+.responsive-canvas {
+  z-index: 2; /* Canvas di atas video */
+}
+
+/* HUD UI: Selalu Fullscreen di atas segalanya */
 .hud-overlay {
   position: absolute;
   top: 0;
@@ -45,88 +61,113 @@ body {
   width: 100%;
   height: 100%;
   z-index: 10;
+  pointer-events: none; /* Agar tidak menghalangi video */
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   padding: 20px;
   box-sizing: border-box;
-  pointer-events: none; /* Agar tidak menghalangi sentuhan jika ada tombol */
 }
 
+/* Styling Elemen HUD */
 .hud-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 2px solid #00f2ff;
-  padding-bottom: 10px;
-  background: linear-gradient(90deg, rgba(0,242,255,0.2), transparent);
 }
 
 .hud-header h2 {
   margin: 0;
   color: #00f2ff;
-  letter-spacing: 3px;
+  font-size: 1.5rem;
+  text-shadow: 0 0 10px rgba(0, 242, 255, 0.5);
 }
 
-.live-indicator {
-  color: #ff0000;
+.live-pill {
+  background: rgba(255, 0, 0, 0.2);
+  color: #ff3333;
+  padding: 5px 15px;
+  border-radius: 20px;
   font-weight: bold;
-  animation: blink 1s infinite;
+  border: 1px solid #ff3333;
+  animation: pulse 2s infinite;
 }
 
-.hud-stats {
-  align-self: flex-end; /* Taruh di kanan */
+.hud-content {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  margin-bottom: 50px;
-  margin-right: 20px;
+  align-items: flex-end; /* Rata kanan */
+  gap: 15px;
+  margin-top: auto;
+  margin-bottom: 80px; /* Beri ruang dari bawah */
 }
 
-.stat-box {
-  background: rgba(0, 0, 0, 0.6);
-  border-right: 4px solid #00f2ff;
-  padding: 15px 30px;
-  text-align: right;
+.hud-card {
+  background: rgba(0, 15, 30, 0.7);
   backdrop-filter: blur(5px);
-  min-width: 200px;
+  padding: 15px 20px;
+  border-right: 3px solid #00f2ff;
+  border-radius: 5px 0 0 5px;
+  min-width: 180px;
+  text-align: right;
+  transition: all 0.3s ease;
 }
 
-.stat-box.glow {
+.hud-card.highlight {
   border-color: #ffe600;
-  box-shadow: 0 0 20px rgba(255, 230, 0, 0.2);
+  background: rgba(30, 30, 0, 0.7);
 }
 
-.stat-box .label {
+.label {
   display: block;
-  font-size: 0.9rem;
+  font-size: 0.8rem;
   color: #aaa;
   margin-bottom: 5px;
 }
 
-.stat-box .value {
-  font-size: 1.5rem;
+.value {
+  font-size: 1.2rem;
   font-weight: bold;
 }
 
-.stat-box .value.big {
-  font-size: 2.5rem;
+.value.big {
+  font-size: 1.8rem;
   color: #ffe600;
 }
 
 .hud-footer {
   text-align: center;
-  color: #00f2ff;
-  background: rgba(0, 0, 0, 0.7);
-  padding: 10px;
-  border-radius: 20px;
-  border: 1px solid #00f2ff;
-  align-self: center;
-  width: 90%;
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.5);
 }
 
-@keyframes blink {
+@keyframes pulse {
   0% { opacity: 1; }
-  50% { opacity: 0; }
+  50% { opacity: 0.5; }
   100% { opacity: 1; }
+}
+
+/* Media Query untuk Layar HP Kecil */
+@media (max-width: 600px) {
+  .hud-header h2 {
+    font-size: 1.2rem;
+  }
+  
+  .hud-content {
+    align-items: center; /* Di HP, status di tengah bawah */
+    margin-bottom: 60px;
+    width: 100%;
+  }
+
+  .hud-card {
+    width: 90%; /* Lebar penuh di HP */
+    text-align: center;
+    border-right: none;
+    border-bottom: 3px solid #00f2ff;
+    border-radius: 5px;
+  }
+  
+  .hud-card.highlight {
+    border-bottom-color: #ffe600;
+  }
 }
