@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import Webcam from 'react-webcam';
-import { Holistic, POSE_LANDMARKS, POSE_CONNECTIONS, HAND_CONNECTIONS, FACEMESH_TESSELATION } from '@mediapipe/holistic';
+import { Holistic, POSE_CONNECTIONS, HAND_CONNECTIONS, FACEMESH_TESSELATION } from '@mediapipe/holistic';
 import { Camera } from '@mediapipe/camera_utils';
 import { drawConnectors, drawLandmarks } from '@mediapipe/drawing_utils';
 import './App.css';
@@ -12,7 +12,7 @@ export default function App() {
   const [faceStatus, setFaceStatus] = useState("Mencari Wajah...");
 
   // --- LOGIKA DETEKSI JARI (Finger Counting) ---
-  const detectHandGesture = (landmarks) => {
+  const detectHandGesture = useCallback((landmarks) => {
     if (!landmarks) return null;
 
     // Titik Jari (Tip vs PIP/Sendi Bawah)
@@ -23,8 +23,8 @@ export default function App() {
 
     let fingersUp = [];
 
-    // Cek Jempol (Sumbu X untuk tangan kanan/kiri berbeda, kita pakai logika sederhana dulu)
-    // Anggap tangan kanan menghadap kamera: Jempol terbuka jika x Tip < x IP
+    // Cek Jempol (Anggap tangan kanan/kiri sederhana: Jempol terbuka jika x Tip < x IP)
+    // Logika ini bisa disesuaikan lagi untuk akurasi kiri/kanan
     if (landmarks[thumbTip].x < landmarks[thumbIp].x) fingersUp.push('Thumb');
 
     // Cek 4 Jari Lainnya (Y Tip < Y Pip berarti jari naik)
@@ -39,7 +39,6 @@ export default function App() {
     // --- KLASIFIKASI GESTURE ---
     
     // 1. LOVE Sign (🤟 - I Love You: Jempol, Telunjuk, Kelingking naik)
-    // Cek apakah Jempol, Telunjuk, Kelingking naik, TAPI Jari Tengah & Manis turun
     const isLove = 
       fingersUp.includes('Thumb') && 
       landmarks[8].y < landmarks[6].y && // Telunjuk Naik
@@ -56,7 +55,7 @@ export default function App() {
     if (count === 5) return "🖐️ LIMA / HAI";
     
     return "Scanning...";
-  };
+  }, []);
 
   const onResults = useCallback((results) => {
     if (!canvasRef.current || !webcamRef.current || !webcamRef.current.video) return;
@@ -93,11 +92,11 @@ export default function App() {
 
     if (activeGesture) setGesture(activeGesture);
 
-    // 3. Pose Tubuh (Opsional, visualisasi bahu)
+    // 3. Pose Tubuh
     drawConnectors(ctx, results.poseLandmarks, POSE_CONNECTIONS, { color: '#00F2FF', lineWidth: 4 });
 
     ctx.restore();
-  }, []);
+  }, [detectHandGesture]);
 
   useEffect(() => {
     const holistic = new Holistic({
