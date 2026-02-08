@@ -11,48 +11,44 @@ export default function App() {
   const [gesture, setGesture] = useState("Menunggu Tangan...");
   const [faceStatus, setFaceStatus] = useState("Mencari Wajah...");
 
-  // --- LOGIKA DETEKSI JARI (Finger Counting) ---
+  // --- LOGIKA DETEKSI JARI ---
   const detectHandGesture = useCallback((landmarks) => {
     if (!landmarks) return null;
 
-    // Titik Jari (Tip vs PIP/Sendi Bawah)
-    const fingerTips = [8, 12, 16, 20]; // Telunjuk, Tengah, Manis, Kelingking
+    const fingerTips = [8, 12, 16, 20];
     const fingerPips = [6, 10, 14, 18];
     const thumbTip = 4;
     const thumbIp = 3;
 
     let fingersUp = [];
 
-    // Cek Jempol (Anggap tangan kanan/kiri sederhana: Jempol terbuka jika x Tip < x IP)
-    // Logika ini bisa disesuaikan lagi untuk akurasi kiri/kanan
-    if (landmarks[thumbTip].x < landmarks[thumbIp].x) fingersUp.push('Thumb');
+    // Deteksi Jempol (Logika universal kiri/kanan sederhana)
+    // Kita cek jarak X jempol ke kelingking untuk tahu apakah jempol 'keluar'
+    if (Math.abs(landmarks[thumbTip].x - landmarks[17].x) > Math.abs(landmarks[thumbIp].x - landmarks[17].x)) {
+       fingersUp.push('Thumb');
+    }
 
-    // Cek 4 Jari Lainnya (Y Tip < Y Pip berarti jari naik)
     fingerTips.forEach((tip, index) => {
       if (landmarks[tip].y < landmarks[fingerPips[index]].y) {
-        fingersUp.push(index); // Simpan index jari yg naik
+        fingersUp.push(index);
       }
     });
 
     const count = fingersUp.length;
 
-    // --- KLASIFIKASI GESTURE ---
-    
-    // 1. LOVE Sign (🤟 - I Love You: Jempol, Telunjuk, Kelingking naik)
+    // Klasifikasi Gesture
     const isLove = 
       fingersUp.includes('Thumb') && 
-      landmarks[8].y < landmarks[6].y && // Telunjuk Naik
-      landmarks[20].y < landmarks[18].y && // Kelingking Naik
-      landmarks[12].y > landmarks[10].y && // Tengah Turun
-      landmarks[16].y > landmarks[14].y;   // Manis Turun
+      landmarks[8].y < landmarks[6].y && 
+      landmarks[20].y < landmarks[18].y && 
+      landmarks[12].y > landmarks[10].y && 
+      landmarks[16].y > landmarks[14].y;
 
     if (isLove) return "🤟 I LOVE YOU";
-
-    // 2. Angka & Simbol Lain
     if (count === 0) return "✊ BATU / ZERO";
-    if (count === 1 && fingersUp.includes(0)) return "☝️ SATU"; // Hanya telunjuk
-    if (count === 2 && fingersUp.includes(0) && fingersUp.includes(1)) return "✌️ DUA / PEACE";
-    if (count === 5) return "🖐️ LIMA / HAI";
+    if (count === 1 && fingersUp.includes(0)) return "☝️ SATU";
+    if (count === 2 && fingersUp.includes(0) && fingersUp.includes(1)) return "✌️ DUA";
+    if (count === 5) return "🖐️ LIMA";
     
     return "Scanning...";
   }, []);
@@ -60,8 +56,11 @@ export default function App() {
   const onResults = useCallback((results) => {
     if (!canvasRef.current || !webcamRef.current || !webcamRef.current.video) return;
 
-    const videoWidth = webcamRef.current.video.videoWidth;
-    const videoHeight = webcamRef.current.video.videoHeight;
+    const video = webcamRef.current.video;
+    const videoWidth = video.videoWidth;
+    const videoHeight = video.videoHeight;
+
+    // Set ukuran canvas sama persis dengan resolusi asli video kamera
     canvasRef.current.width = videoWidth;
     canvasRef.current.height = videoHeight;
 
@@ -69,31 +68,29 @@ export default function App() {
     ctx.save();
     ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
 
-    // 1. Gambar Wajah (Mesh)
-    drawConnectors(ctx, results.faceLandmarks, FACEMESH_TESSELATION, { color: '#C0C0C070', lineWidth: 1 });
-    if (results.faceLandmarks) setFaceStatus("Wajah Terdeteksi ✅");
-    else setFaceStatus("Wajah Hilang ❌");
+    // 1. Wajah
+    drawConnectors(ctx, results.faceLandmarks, FACEMESH_TESSELATION, { color: '#C0C0C050', lineWidth: 1 });
+    if (results.faceLandmarks) setFaceStatus("Wajah Aktif ✅");
+    else setFaceStatus("Mencari... ❌");
 
-    // 2. Gambar Tangan & Deteksi Gesture
-    let activeGesture = "Tidak ada tangan";
+    // 2. Tangan & Gesture
+    let activeGesture = "";
     
-    // Prioritas Tangan Kanan
     if (results.rightHandLandmarks) {
-      drawConnectors(ctx, results.rightHandLandmarks, HAND_CONNECTIONS, { color: '#00FF00', lineWidth: 5 });
-      drawLandmarks(ctx, results.rightHandLandmarks, { color: '#FF0000', lineWidth: 2 });
+      drawConnectors(ctx, results.rightHandLandmarks, HAND_CONNECTIONS, { color: '#00FF00', lineWidth: 3 });
+      drawLandmarks(ctx, results.rightHandLandmarks, { color: '#FF0000', lineWidth: 1, radius: 3 });
       activeGesture = detectHandGesture(results.rightHandLandmarks);
     } 
-    // Jika tidak ada kanan, cek kiri
     else if (results.leftHandLandmarks) {
-      drawConnectors(ctx, results.leftHandLandmarks, HAND_CONNECTIONS, { color: '#00FF00', lineWidth: 5 });
-      drawLandmarks(ctx, results.leftHandLandmarks, { color: '#FF0000', lineWidth: 2 });
+      drawConnectors(ctx, results.leftHandLandmarks, HAND_CONNECTIONS, { color: '#00FF00', lineWidth: 3 });
+      drawLandmarks(ctx, results.leftHandLandmarks, { color: '#FF0000', lineWidth: 1, radius: 3 });
       activeGesture = detectHandGesture(results.leftHandLandmarks);
     }
 
     if (activeGesture) setGesture(activeGesture);
 
-    // 3. Pose Tubuh
-    drawConnectors(ctx, results.poseLandmarks, POSE_CONNECTIONS, { color: '#00F2FF', lineWidth: 4 });
+    // 3. Pose (Bahu/Badan)
+    drawConnectors(ctx, results.poseLandmarks, POSE_CONNECTIONS, { color: '#00F2FF', lineWidth: 2 });
 
     ctx.restore();
   }, [detectHandGesture]);
@@ -119,6 +116,7 @@ export default function App() {
             await holistic.send({ image: webcamRef.current.video });
           }
         },
+        // Gunakan resolusi standar 4:3 atau 16:9 agar tidak gepeng di HP
         width: 1280,
         height: 720,
       });
@@ -128,38 +126,40 @@ export default function App() {
   }, []);
 
   return (
-    <div className="holistic-container">
-      <Webcam
-        ref={webcamRef}
-        className="webcam-bg"
-        mirrored={true}
-        videoConstraints={{ facingMode: "user" }}
-      />
-      <canvas ref={canvasRef} className="output-canvas" />
+    <div className="app-container">
+      {/* Container Video Wrapper agar responsif */}
+      <div className="video-wrapper">
+        <Webcam
+          ref={webcamRef}
+          className="responsive-video"
+          mirrored={true}
+          videoConstraints={{ facingMode: "user" }}
+        />
+        <canvas ref={canvasRef} className="responsive-canvas" />
+      </div>
       
-      {/* UI Overlay HUD */}
+      {/* UI Overlay HUD - Terpisah dari wrapper video agar selalu fullscreen */}
       <div className="hud-overlay">
         <div className="hud-header">
           <h2>AI SENSOR CORE</h2>
-          <div className="live-indicator">● LIVE</div>
+          <div className="live-pill">● LIVE</div>
         </div>
 
-        <div className="hud-stats">
-          <div className="stat-box">
-            <span className="label">FACE STATUS</span>
+        <div className="hud-content">
+          <div className="hud-card">
+            <span className="label">STATUS WAJAH</span>
             <span className="value">{faceStatus}</span>
           </div>
-          <div className="stat-box glow">
-            <span className="label">HAND SIGN</span>
+          <div className="hud-card highlight">
+            <span className="label">GESTURE TANGAN</span>
             <span className="value big">{gesture}</span>
           </div>
         </div>
         
         <div className="hud-footer">
-          <p>COBA GESTURE: ☝️ (1), ✌️ (2), 🖐️ (5), ✊ (0), 🤟 (LOVE)</p>
+          <p>TAMPILKAN TANGAN ANDA KE KAMERA</p>
         </div>
       </div>
     </div>
   );
-        }
-        
+}
