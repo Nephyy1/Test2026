@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import Webcam from 'react-webcam';
 import { Hands, HAND_CONNECTIONS } from '@mediapipe/hands';
 import { drawConnectors, drawLandmarks } from '@mediapipe/drawing_utils';
@@ -10,6 +10,68 @@ export default function App() {
   const canvasRef = useRef(null);
   const [bgColor, setBgColor] = useState('#1e1e1e');
   const [isPinching, setIsPinching] = useState(false);
+
+  // Fungsi triggerAction untuk mengganti warna
+  const triggerAction = useCallback(() => {
+    const randomColor = '#' + Math.floor(Math.random() * 16777215).toString(16);
+    setBgColor(randomColor);
+  }, []);
+
+  // Fungsi deteksi pinch
+  const detectPinch = useCallback((landmarks) => {
+    const thumbTip = landmarks[4];
+    const indexTip = landmarks[8];
+
+    const distance = Math.sqrt(
+      Math.pow(thumbTip.x - indexTip.x, 2) +
+      Math.pow(thumbTip.y - indexTip.y, 2)
+    );
+
+    // Threshold jarak
+    if (distance < 0.05) {
+      setIsPinching((prev) => {
+        if (!prev) {
+          triggerAction();
+          return true;
+        }
+        return prev;
+      });
+    } else {
+      setIsPinching(false);
+    }
+  }, [triggerAction]);
+
+  // Fungsi callback hasil deteksi
+  const onResults = useCallback((results) => {
+    if (!canvasRef.current || !webcamRef.current || !webcamRef.current.video) return;
+
+    const videoWidth = webcamRef.current.video.videoWidth;
+    const videoHeight = webcamRef.current.video.videoHeight;
+
+    canvasRef.current.width = videoWidth;
+    canvasRef.current.height = videoHeight;
+
+    const canvasCtx = canvasRef.current.getContext('2d');
+    canvasCtx.save();
+    canvasCtx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+
+    if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+      for (const landmarks of results.multiHandLandmarks) {
+        drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {
+          color: '#00FF00',
+          lineWidth: 5,
+        });
+        drawLandmarks(canvasCtx, landmarks, {
+          color: '#FF0000',
+          lineWidth: 2,
+        });
+        detectPinch(landmarks);
+      }
+    } else {
+      setIsPinching(false);
+    }
+    canvasCtx.restore();
+  }, [detectPinch]);
 
   useEffect(() => {
     const hands = new Hands({
@@ -42,69 +104,16 @@ export default function App() {
       });
       camera.start();
     }
+    // Baris di bawah ini SANGAT PENTING untuk mengatasi error build Vercel
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const onResults = (results) => {
-    if (!canvasRef.current) return;
-    
-    const videoWidth = webcamRef.current.video.videoWidth;
-    const videoHeight = webcamRef.current.video.videoHeight;
-    
-    canvasRef.current.width = videoWidth;
-    canvasRef.current.height = videoHeight;
-
-    const canvasCtx = canvasRef.current.getContext('2d');
-    canvasCtx.save();
-    canvasCtx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-    
-    if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-      for (const landmarks of results.multiHandLandmarks) {
-        drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {
-          color: '#00FF00',
-          lineWidth: 5,
-        });
-        drawLandmarks(canvasCtx, landmarks, {
-          color: '#FF0000',
-          lineWidth: 2,
-        });
-        detectPinch(landmarks);
-      }
-    } else {
-      setIsPinching(false);
-    }
-    canvasCtx.restore();
-  };
-
-  const detectPinch = (landmarks) => {
-    const thumbTip = landmarks[4];
-    const indexTip = landmarks[8];
-
-    const distance = Math.sqrt(
-      Math.pow(thumbTip.x - indexTip.x, 2) +
-      Math.pow(thumbTip.y - indexTip.y, 2)
-    );
-
-    if (distance < 0.05) {
-      if (!isPinching) {
-        setIsPinching(true);
-        triggerAction();
-      }
-    } else {
-      setIsPinching(false);
-    }
-  };
-
-  const triggerAction = () => {
-    const randomColor = '#' + Math.floor(Math.random()*16777215).toString(16);
-    setBgColor(randomColor);
-  };
 
   return (
     <div className="App" style={{ backgroundColor: bgColor }}>
       <header className="App-header">
         <h1>Hand Gesture Control</h1>
         <p>{isPinching ? "👌 PINCH DETECTED!" : "🖐 Open Hand"}</p>
-        
+
         <div className="cam-container">
           <Webcam
             ref={webcamRef}
@@ -139,5 +148,5 @@ export default function App() {
       </header>
     </div>
   );
-      }
-    
+              }
+                                
